@@ -135,6 +135,7 @@ class Trainer(object):
                     config.session_creator, config.session_init,
                     config.steps_per_epoch, config.starting_epoch, config.max_epoch)
             self.train = train
+        self.train_time = []
 
     def _register_callback(self, cb):
         """
@@ -263,6 +264,7 @@ class Trainer(object):
                     self._callbacks.after_epoch()
                     logger.info("Epoch {} (global_step {}) finished, time:{}.".format(
                         self.loop.epoch_num, self.loop.global_step, humanize_time_delta(time.time() - start_time)))
+                    self.train_time.append(time.time() - start_time)
 
                     # trigger epoch outside the timing region.
                     self._callbacks.trigger_epoch()

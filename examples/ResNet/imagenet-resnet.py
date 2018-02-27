@@ -4,6 +4,7 @@
 
 import argparse
 import os
+import json
 
 
 from tensorpack import logger, QueueInput
@@ -101,7 +102,7 @@ def get_config(model, fake=False):
         dataflow=dataset_train,
         callbacks=callbacks,
         steps_per_epoch=100 if args.fake else 1280000 // args.batch,
-        max_epoch=110,
+        max_epoch=args.max_epoch,
     )
 
 
@@ -120,6 +121,10 @@ if __name__ == '__main__':
                         help='total batch size. 32 per GPU gives best accuracy, higher values should be similarly good')
     parser.add_argument('--mode', choices=['resnet', 'preact', 'se'],
                         help='variants of resnet to use', default='resnet')
+    parser.add_argument('--top1_val_limit', default=0.75,
+                        help='Threshold of top-1 validation accuracy')
+    parser.add_argument('--max_epoch', default=110,
+                        help='Maximum number of epochs to run')
     args = parser.parse_args()
 
     if args.gpu:
@@ -142,3 +147,19 @@ if __name__ == '__main__':
             config.session_init = get_model_loader(args.load)
         trainer = SyncMultiGPUTrainerReplicated(max(get_nr_gpu(), 1))
         launch_train_with_config(config, trainer)
+
+    # Postprocess stats
+    stat_file = "train_log/imagenet-%s-d%d/stat.json" % (args.mode, args.depth)
+    data = json.load(open(stat_file, 'r'))
+    train_time_list = trainer.train_time
+    total_train_time = 0
+    total_num_epochs = 1
+    for i, entry in enumerate(data):
+        val_acc_top1 = 1 - float(entry["val-error-top1"])
+        if val_acc_top1 < args.top1_val_limit:
+            total_train_time += train_time_list[i]
+        else:
+            total_num_epochs = i - 1
+            break
+    print("Total training time: %s" % (str(total_train_time)))
+    print("Throughput images/sec: %s" % (str(1280000 * total_num_epochs / float(total_train_time)))) 

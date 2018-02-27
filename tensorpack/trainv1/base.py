@@ -71,6 +71,7 @@ class Trainer(object):
         self.loop.config(config.steps_per_epoch, config.starting_epoch, config.max_epoch)
 
         self._setup()   # subclass will setup the graph and InputSource
+        self._train_time = []
 
     def register_callback(self, cb):
         """
@@ -103,6 +104,10 @@ class Trainer(object):
     def monitors(self):
         assert isinstance(self._monitors, Monitors), "Monitors haven't been setup!"
         return self._monitors
+
+    @property
+    def train_time(self):
+        return self._train_time
 
     def train(self):
         """ Start training """
@@ -199,6 +204,7 @@ class Trainer(object):
                     self._callbacks.after_epoch()
                     logger.info("Epoch {} (global_step {}) finished, time:{:.2f} sec.".format(
                         self.loop.epoch_num, self.loop.global_step, time.time() - start_time))
+                    self._train_time.append(time.time() - start_time)
 
                     # trigger epoch outside the timing region.
                     self._callbacks.trigger_epoch()
